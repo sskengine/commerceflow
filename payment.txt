@@ -1,0 +1,4 @@
+@GetMapping("/payments/{id}")
+public PaymentResponse getPayment(@PathVariable String id) {
+    // Реализация SCRUM-15
+}
