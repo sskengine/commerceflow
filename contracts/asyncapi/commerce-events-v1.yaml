@@ -1,0 +1,38 @@
+asyncapi: 2.6.0
+info:
+  title: CommerceFlow domain events
+  version: 1.0.0
+channels:
+  commerceflow.order-created.v1:
+    publish:
+      message: { $ref: '#/components/messages/OrderCreated' }
+  commerceflow.stock-reserved.v1:
+    publish:
+      message: { $ref: '#/components/messages/StockReserved' }
+  commerceflow.payment-authorized.v1:
+    publish:
+      message: { $ref: '#/components/messages/PaymentAuthorized' }
+components:
+  messages:
+    OrderCreated:
+      name: OrderCreated
+      x-requirements: [INT-004, INT-005]
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    StockReserved:
+      name: StockReserved
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    PaymentAuthorized:
+      name: PaymentAuthorized
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+  schemas:
+    EventEnvelope:
+      type: object
+      required: [eventId, eventType, eventVersion, occurredAt, correlationId, payload]
+      properties:
+        eventId: { type: string, format: uuid }
+        eventType: { type: string }
+        eventVersion: { type: integer, minimum: 1 }
+        occurredAt: { type: string, format: date-time }
+        correlationId: { type: string }
+        payload: { type: object }
+

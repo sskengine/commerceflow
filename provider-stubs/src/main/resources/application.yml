@@ -1,0 +1,4 @@
+server.port: 8090
+spring.application.name: provider-stubs
+management.endpoints.web.exposure.include: health,info
+

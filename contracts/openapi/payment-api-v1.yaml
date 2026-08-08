@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info: { title: CommerceFlow Payment API, version: 1.0.0 }
+paths:
+  /api/v1/payments:
+    post:
+      operationId: authorizePayment
+      x-requirements: [FR-040, FR-041, INT-003, AC-002]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Correlation-Id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, amount, paymentMethodToken]
+              properties:
+                orderId: { type: string, format: uuid }
+                amount: { $ref: '#/components/schemas/Money' }
+                paymentMethodToken: { type: string, writeOnly: true }
+      responses:
+        '201': { description: Authorized or original idempotent result }
+components:
+  schemas:
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount: { type: number, format: decimal, minimum: 0 }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+

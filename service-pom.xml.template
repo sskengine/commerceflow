@@ -1,0 +1,11 @@
+<!-- Documentation-only template. Each service pom is generated from this structure. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.sskengine.commerceflow</groupId>
+    <artifactId>commerceflow-services</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>replace-me</artifactId>
+</project>
+

@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info: { title: CommerceFlow Inventory API, version: 1.0.0 }
+paths:
+  /api/v1/reservations:
+    post:
+      operationId: reserveStock
+      x-requirements: [FR-030, BRULE-006, AC-003]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, productId, quantity]
+              properties:
+                orderId: { type: string, format: uuid }
+                productId: { type: string, format: uuid }
+                quantity: { type: integer, minimum: 1 }
+      responses:
+        '201': { description: Stock reserved }
+        '409': { description: INSUFFICIENT_STOCK }
+

@@ -1,0 +1,4 @@
+server.port: 8086
+spring.application.name: delivery-service
+management.endpoints.web.exposure.include: health,info
+

@@ -1,0 +1,65 @@
+x-service: &service
+  build:
+    context: .
+  restart: unless-stopped
+  networks: [commerceflow]
+
+services:
+  identity-service:
+    <<: *service
+    build: { context: ., args: { MODULE: identity-service } }
+    ports: ["8081:8081"]
+  catalog-service:
+    <<: *service
+    build: { context: ., args: { MODULE: catalog-service } }
+    ports: ["8082:8082"]
+  inventory-service:
+    <<: *service
+    build: { context: ., args: { MODULE: inventory-service } }
+    ports: ["8083:8083"]
+  order-service:
+    <<: *service
+    build: { context: ., args: { MODULE: order-service } }
+    environment:
+      INVENTORY_BASE_URL: http://inventory-service:8083
+    ports: ["8084:8084"]
+    depends_on: [inventory-service]
+  payment-service:
+    <<: *service
+    build: { context: ., args: { MODULE: payment-service } }
+    environment:
+      PROVIDER_BASE_URL: http://provider-stubs:8090
+    ports: ["8085:8085"]
+    depends_on: [provider-stubs]
+  delivery-service:
+    <<: *service
+    build: { context: ., args: { MODULE: delivery-service } }
+    ports: ["8086:8086"]
+  notification-service:
+    <<: *service
+    build: { context: ., args: { MODULE: notification-service } }
+    ports: ["8087:8087"]
+  reporting-service:
+    <<: *service
+    build: { context: ., args: { MODULE: reporting-service } }
+    ports: ["8088:8088"]
+  audit-service:
+    <<: *service
+    build: { context: ., args: { MODULE: audit-service } }
+    ports: ["8089:8089"]
+  provider-stubs:
+    <<: *service
+    build: { context: ., args: { MODULE: provider-stubs } }
+    ports: ["8090:8090"]
+  api-gateway:
+    <<: *service
+    build: { context: ., args: { MODULE: api-gateway } }
+    environment:
+      CATALOG_BASE_URL: http://catalog-service:8082
+      ORDER_BASE_URL: http://order-service:8084
+    ports: ["8080:8080"]
+    depends_on: [catalog-service, order-service]
+
+networks:
+  commerceflow:
+

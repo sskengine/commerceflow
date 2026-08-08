@@ -1,0 +1,11 @@
+server:
+  port: 8084
+spring:
+  application:
+    name: order-service
+clients:
+  inventory:
+    base-url: ${INVENTORY_BASE_URL:http://127.0.0.1:8083}
+management:
+  endpoints.web.exposure.include: health,info
+

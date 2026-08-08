@@ -1,0 +1,4 @@
+server.port: 8088
+spring.application.name: reporting-service
+management.endpoints.web.exposure.include: health,info
+

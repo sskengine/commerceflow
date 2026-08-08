@@ -1,0 +1,13 @@
+requirement,component,artifact,test,status
+FR-010,catalog-service,CatalogController,,implemented
+FR-021,order-service,CreateOrderRequest,CreateOrderRequestTest,implemented
+FR-030,inventory-service,ReservationService,ReservationServiceTest,implemented
+FR-040,payment-service,PaymentController,PaymentServiceTest,implemented
+FR-041,payment-service,PaymentService,PaymentServiceTest,implemented
+FR-050,delivery-service,DeliveryController,,baseline
+FR-060,notification-service,NotificationController,,baseline
+FR-080,reporting-service,ReportingController,,baseline
+FR-090,audit-service,AuditController,,baseline
+DATA-004,all,persistence migrations,,planned-v0.2
+INT-004,commerceflow-contracts,CommerceEvents,,contract-only
+

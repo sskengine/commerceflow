@@ -1,0 +1,10 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: api-gateway
+clients:
+  catalog.base-url: ${CATALOG_BASE_URL:http://127.0.0.1:8082}
+  order.base-url: ${ORDER_BASE_URL:http://127.0.0.1:8084}
+management:
+  endpoints.web.exposure.include: health,info

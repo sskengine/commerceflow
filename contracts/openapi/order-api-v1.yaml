@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: CommerceFlow Order API
+  version: 1.0.0
+paths:
+  /api/v1/orders:
+    post:
+      operationId: createOrder
+      x-requirements: [FR-021, FR-022, DATA-002, AC-001]
+      parameters:
+        - in: header
+          name: X-Correlation-Id
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+      responses:
+        '201': { description: Order created }
+        '400': { description: CURRENCY_REQUIRED or validation error }
+        '409': { description: INSUFFICIENT_STOCK }
+components:
+  schemas:
+    CreateOrderRequest:
+      type: object
+      required: [customerId, currency, items]
+      properties:
+        customerId: { type: string, format: uuid }
+        currency: { type: string, minLength: 3, maxLength: 3, example: USD }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/OrderItem' }
+    OrderItem:
+      type: object
+      required: [productId, quantity, unitPrice]
+      properties:
+        productId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1 }
+        unitPrice: { type: number, format: decimal, minimum: 0 }
+

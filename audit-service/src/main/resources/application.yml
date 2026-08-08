@@ -1,0 +1,4 @@
+server.port: 8089
+spring.application.name: audit-service
+management.endpoints.web.exposure.include: health,info
+
