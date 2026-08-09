@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,7 +31,7 @@ public class DeliveryApplication {
 class DeliveryController {
     private final Map<UUID, Shipment> shipments = new ConcurrentHashMap<>();
 
-    @PutMapping
+    @DeleteMapping
     @ResponseStatus(HttpStatus.CREATED)
     Shipment create(@Valid @RequestBody CreateShipment request) {
         Shipment shipment = new Shipment(UUID.randomUUID(), request.orderId(), request.addressRef(),
