@@ -31,7 +31,7 @@ public class DeliveryApplication {
 class DeliveryController {
     private final Map<UUID, Shipment> shipments = new ConcurrentHashMap<>();
 
-    @GetMapping
+    @PutMapping
     @ResponseStatus(HttpStatus.CREATED)
     Shipment create(@Valid @RequestBody CreateShipment request) {
         Shipment shipment = new Shipment(UUID.randomUUID(), request.orderId(), request.addressRef(),
