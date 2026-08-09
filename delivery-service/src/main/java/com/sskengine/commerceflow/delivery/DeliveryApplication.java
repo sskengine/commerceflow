@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -29,7 +30,7 @@ public class DeliveryApplication {
 class DeliveryController {
     private final Map<UUID, Shipment> shipments = new ConcurrentHashMap<>();
 
-    @PostMapping
+    @PutMapping
     @ResponseStatus(HttpStatus.CREATED)
     Shipment create(@Valid @RequestBody CreateShipment request) {
         Shipment shipment = new Shipment(UUID.randomUUID(), request.orderId(), request.addressRef(),
