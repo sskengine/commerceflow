@@ -6,23 +6,47 @@ channels:
   commerceflow.order-created.v1:
     publish:
       message: { $ref: '#/components/messages/OrderCreated' }
+  commerceflow.order-status-changed.v1:
+    publish:
+      message: { $ref: '#/components/messages/OrderStatusChanged' }
   commerceflow.stock-reserved.v1:
     publish:
       message: { $ref: '#/components/messages/StockReserved' }
   commerceflow.payment-authorized.v1:
     publish:
       message: { $ref: '#/components/messages/PaymentAuthorized' }
+  commerceflow.payment-failed.v1:
+    publish:
+      message: { $ref: '#/components/messages/PaymentFailed' }
+  commerceflow.refund-completed.v1:
+    publish:
+      message: { $ref: '#/components/messages/RefundCompleted' }
+  commerceflow.shipment-created.v1:
+    publish:
+      message: { $ref: '#/components/messages/ShipmentCreated' }
 components:
   messages:
     OrderCreated:
       name: OrderCreated
       x-requirements: [INT-004, INT-005]
       payload: { $ref: '#/components/schemas/EventEnvelope' }
+    OrderStatusChanged:
+      name: OrderStatusChanged
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
     StockReserved:
       name: StockReserved
       payload: { $ref: '#/components/schemas/EventEnvelope' }
     PaymentAuthorized:
       name: PaymentAuthorized
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    PaymentFailed:
+      name: PaymentFailed
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    RefundCompleted:
+      name: RefundCompleted
+      payload: { $ref: '#/components/schemas/EventEnvelope' }
+    ShipmentCreated:
+      name: ShipmentCreated
       payload: { $ref: '#/components/schemas/EventEnvelope' }
   schemas:
     EventEnvelope:
@@ -35,4 +59,3 @@ components:
         occurredAt: { type: string, format: date-time }
         correlationId: { type: string }
         payload: { type: object }
-

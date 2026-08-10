@@ -1,4 +1,25 @@
-server.port: 8088
-spring.application.name: reporting-service
-management.endpoints.web.exposure.include: health,info
-
+server:
+  port: 8088
+spring:
+  application:
+    name: reporting-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/commerceflow?currentSchema=${DB_SCHEMA:reporting}
+    username: ${DB_USER:commerceflow}
+    password: ${DB_PASSWORD:commerceflow}
+  jpa:
+    hibernate.ddl-auto: validate
+    open-in-view: false
+    properties.hibernate.jdbc.time_zone: UTC
+  flyway:
+    schemas: ${DB_SCHEMA:reporting}
+    default-schema: ${DB_SCHEMA:reporting}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9094}
+    consumer:
+      group-id: reporting-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+management:
+  endpoints.web.exposure.include: health,info

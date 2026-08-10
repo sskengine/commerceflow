@@ -3,6 +3,16 @@ server:
 spring:
   application:
     name: catalog-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/commerceflow?currentSchema=${DB_SCHEMA:catalog}
+    username: ${DB_USER:commerceflow}
+    password: ${DB_PASSWORD:commerceflow}
+  jpa:
+    hibernate.ddl-auto: validate
+    open-in-view: false
+    properties.hibernate.jdbc.time_zone: UTC
+  flyway:
+    schemas: ${DB_SCHEMA:catalog}
+    default-schema: ${DB_SCHEMA:catalog}
 management:
   endpoints.web.exposure.include: health,info
-

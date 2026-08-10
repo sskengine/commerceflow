@@ -3,63 +3,166 @@ x-service: &service
     context: .
   restart: unless-stopped
   networks: [commerceflow]
+  environment: &service-env
+    DB_HOST: postgres
+    KAFKA_BOOTSTRAP: kafka:9092
+  depends_on: &infra
+    postgres:
+      condition: service_healthy
+    kafka:
+      condition: service_started
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: commerceflow
+      POSTGRES_PASSWORD: commerceflow
+      POSTGRES_DB: commerceflow
+    ports: ["5432:5432"]
+    volumes:
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-schemas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U commerceflow -d commerceflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [commerceflow]
+
+  kafka:
+    image: apache/kafka:3.8.1
+    ports: ["9092:9092", "9094:9094"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks: [commerceflow]
+
   identity-service:
     <<: *service
     build: { context: ., args: { MODULE: identity-service } }
     ports: ["8081:8081"]
+    environment: {}
+    depends_on: []
+
   catalog-service:
     <<: *service
     build: { context: ., args: { MODULE: catalog-service } }
+    environment:
+      <<: *service-env
+      DB_SCHEMA: catalog
     ports: ["8082:8082"]
+    depends_on: *infra
+
   inventory-service:
     <<: *service
     build: { context: ., args: { MODULE: inventory-service } }
+    environment:
+      <<: *service-env
+      DB_SCHEMA: inventory
     ports: ["8083:8083"]
+    depends_on: *infra
+
   order-service:
     <<: *service
     build: { context: ., args: { MODULE: order-service } }
     environment:
+      <<: *service-env
+      DB_SCHEMA: orders
       INVENTORY_BASE_URL: http://inventory-service:8083
     ports: ["8084:8084"]
-    depends_on: [inventory-service]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+
   payment-service:
     <<: *service
     build: { context: ., args: { MODULE: payment-service } }
     environment:
+      <<: *service-env
+      DB_SCHEMA: payment
       PROVIDER_BASE_URL: http://provider-stubs:8090
     ports: ["8085:8085"]
-    depends_on: [provider-stubs]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      provider-stubs:
+        condition: service_started
+
   delivery-service:
     <<: *service
     build: { context: ., args: { MODULE: delivery-service } }
+    environment:
+      <<: *service-env
+      DB_SCHEMA: delivery
+      PROVIDER_BASE_URL: http://provider-stubs:8090
     ports: ["8086:8086"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      provider-stubs:
+        condition: service_started
+
   notification-service:
     <<: *service
     build: { context: ., args: { MODULE: notification-service } }
+    environment:
+      <<: *service-env
+      DB_SCHEMA: notification
     ports: ["8087:8087"]
+    depends_on: *infra
+
   reporting-service:
     <<: *service
     build: { context: ., args: { MODULE: reporting-service } }
+    environment:
+      <<: *service-env
+      DB_SCHEMA: reporting
     ports: ["8088:8088"]
+    depends_on: *infra
+
   audit-service:
     <<: *service
     build: { context: ., args: { MODULE: audit-service } }
+    environment:
+      <<: *service-env
+      DB_SCHEMA: audit
     ports: ["8089:8089"]
+    depends_on: *infra
+
   provider-stubs:
     <<: *service
     build: { context: ., args: { MODULE: provider-stubs } }
     ports: ["8090:8090"]
+    environment: {}
+    depends_on: []
+
   api-gateway:
     <<: *service
     build: { context: ., args: { MODULE: api-gateway } }
     environment:
       CATALOG_BASE_URL: http://catalog-service:8082
       ORDER_BASE_URL: http://order-service:8084
+      PAYMENT_BASE_URL: http://payment-service:8085
     ports: ["8080:8080"]
-    depends_on: [catalog-service, order-service]
+    depends_on: [catalog-service, order-service, payment-service]
 
 networks:
   commerceflow:
-

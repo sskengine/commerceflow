@@ -1,0 +1,9 @@
+-- Separate schemas keep ownership boundaries enforceable (DATA-004).
+CREATE SCHEMA IF NOT EXISTS catalog;
+CREATE SCHEMA IF NOT EXISTS inventory;
+CREATE SCHEMA IF NOT EXISTS orders;
+CREATE SCHEMA IF NOT EXISTS payment;
+CREATE SCHEMA IF NOT EXISTS delivery;
+CREATE SCHEMA IF NOT EXISTS notification;
+CREATE SCHEMA IF NOT EXISTS reporting;
+CREATE SCHEMA IF NOT EXISTS audit;

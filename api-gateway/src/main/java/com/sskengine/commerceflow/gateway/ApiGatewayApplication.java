@@ -17,9 +17,24 @@ import org.springframework.web.client.RestClient;
 
 @SpringBootApplication
 public class ApiGatewayApplication {
-    public static void main(String[] args) { SpringApplication.run(ApiGatewayApplication.class, args); }
-    @Bean RestClient catalogClient(@Value("${clients.catalog.base-url}") String url) { return RestClient.create(url); }
-    @Bean RestClient orderClient(@Value("${clients.order.base-url}") String url) { return RestClient.create(url); }
+    public static void main(String[] args) {
+        SpringApplication.run(ApiGatewayApplication.class, args);
+    }
+
+    @Bean
+    RestClient catalogClient(@Value("${clients.catalog.base-url}") String url) {
+        return RestClient.create(url);
+    }
+
+    @Bean
+    RestClient orderClient(@Value("${clients.order.base-url}") String url) {
+        return RestClient.create(url);
+    }
+
+    @Bean
+    RestClient paymentClient(@Value("${clients.payment.base-url}") String url) {
+        return RestClient.create(url);
+    }
 }
 
 /** INT-001, INT-002: public BFF keeps service locations out of client contracts. */
@@ -28,9 +43,12 @@ public class ApiGatewayApplication {
 class GatewayController {
     private final RestClient catalog;
     private final RestClient order;
-    GatewayController(RestClient catalogClient, RestClient orderClient) {
+    private final RestClient payment;
+
+    GatewayController(RestClient catalogClient, RestClient orderClient, RestClient paymentClient) {
         this.catalog = catalogClient;
         this.order = orderClient;
+        this.payment = paymentClient;
     }
 
     @GetMapping("/catalog/products")
@@ -47,5 +65,15 @@ class GatewayController {
                 .body(request).retrieve().body(Map.class);
         return body == null ? Map.of() : body;
     }
-}
 
+    @PostMapping(value = "/payments", consumes = MediaType.APPLICATION_JSON_VALUE)
+    Map<?, ?> authorizePayment(@RequestBody Map<String, Object> request,
+                               @RequestHeader("X-Correlation-Id") String correlationId,
+                               @RequestHeader("Idempotency-Key") String idempotencyKey) {
+        Map<?, ?> body = payment.post().uri("/api/v1/payments")
+                .header("X-Correlation-Id", correlationId)
+                .header("Idempotency-Key", idempotencyKey)
+                .body(request).retrieve().body(Map.class);
+        return body == null ? Map.of() : body;
+    }
+}

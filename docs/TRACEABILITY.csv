@@ -4,10 +4,13 @@ FR-021,order-service,CreateOrderRequest,CreateOrderRequestTest,implemented
 FR-030,inventory-service,ReservationService,ReservationServiceTest,implemented
 FR-040,payment-service,PaymentController,PaymentServiceTest,implemented
 FR-041,payment-service,PaymentService,PaymentServiceTest,implemented
-FR-050,delivery-service,DeliveryController,,baseline
-FR-060,notification-service,NotificationController,,baseline
-FR-080,reporting-service,ReportingController,,baseline
-FR-090,audit-service,AuditController,,baseline
-DATA-004,all,persistence migrations,,planned-v0.2
-INT-004,commerceflow-contracts,CommerceEvents,,contract-only
-
+FR-050,delivery-service,DeliveryService,,implemented
+FR-060,notification-service,NotificationService,,implemented
+FR-080,reporting-service,ReportingService,,implemented
+FR-090,audit-service,AuditService,,implemented
+DATA-004,all,Flyway migrations,,implemented
+INT-004,commerceflow-contracts,CommerceEvents,,implemented
+INT-005,commerceflow-messaging,DomainEventPublisher,,implemented
+INT-006,notification-service,NotificationService,,implemented
+AC-002,payment-service,PaymentService,PaymentServiceTest,implemented
+AC-003,inventory-service,ReservationService,ReservationServiceTest,implemented

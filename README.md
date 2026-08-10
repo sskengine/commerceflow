@@ -10,17 +10,22 @@ This repository implements an intentionally small but executable baseline of the
 |---|---:|---|
 | api-gateway | 8080 | Public entry point/BFF |
 | identity-service | 8081 | Demo identities and roles |
-| catalog-service | 8082 | Products and prices |
-| inventory-service | 8083 | Stock and reservations |
-| order-service | 8084 | Order creation and status |
-| payment-service | 8085 | Idempotent payment operations |
-| delivery-service | 8086 | Shipments and delivery status |
-| notification-service | 8087 | Deduplicated notifications |
-| reporting-service | 8088 | Operational read model |
+| catalog-service | 8082 | Products and prices (PostgreSQL) |
+| inventory-service | 8083 | Stock reservations + Kafka `StockReserved` |
+| order-service | 8084 | Orders + Kafka `OrderCreated` |
+| payment-service | 8085 | Idempotent payments + Kafka payment events |
+| delivery-service | 8086 | Shipments (HTTP + Kafka consumer) |
+| notification-service | 8087 | Deduplicated notifications from Kafka |
+| reporting-service | 8088 | Operational projections from Kafka |
 | audit-service | 8089 | Immutable audit entries |
 | provider-stubs | 8090 | Payment/logistics success, failure and timeout |
 
-`commerceflow-contracts` contains shared versioned DTOs and event envelopes. It intentionally contains no service implementation.
+Shared modules:
+
+- `commerceflow-contracts` — versioned DTOs, event payloads, topic names
+- `commerceflow-messaging` — Kafka `EventEnvelope` publisher
+
+Infrastructure in `docker compose`: PostgreSQL (schemas per service) and Kafka (KRaft).
 
 ## Build
 
@@ -48,14 +53,3 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-test.ps1
 4. Create branch `SCRUM-15-payment-validation`.
 5. Make one controlled change from `docs/ECA-EXPERIMENTS.md` and open a PR.
 6. Let the GitHub webhook start ECA analysis; compare its findings with the experiment oracle.
-
-Recommended repository name: `commerceflow-services`. Do not commit real tokens, webhook secrets or provider credentials.
-
-## Important baseline choices
-
-- Stores are in memory in v0.1; PostgreSQL/Flyway ownership is introduced in v0.2.
-- Synchronous REST is used for the first vertical slice; Kafka/AsyncAPI delivery is introduced in v0.3.
-- Identity tokens are opaque demo tokens, not production JWTs.
-- `X-Correlation-Id` and `Idempotency-Key` are explicit contract fields for ECA analysis.
-- Provider stubs are deterministic and controlled by `X-Stub-Scenario`.
-

@@ -3,9 +3,24 @@ server:
 spring:
   application:
     name: order-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/commerceflow?currentSchema=${DB_SCHEMA:orders}
+    username: ${DB_USER:commerceflow}
+    password: ${DB_PASSWORD:commerceflow}
+  jpa:
+    hibernate.ddl-auto: validate
+    open-in-view: false
+    properties.hibernate.jdbc.time_zone: UTC
+  flyway:
+    schemas: ${DB_SCHEMA:orders}
+    default-schema: ${DB_SCHEMA:orders}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9094}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 clients:
   inventory:
     base-url: ${INVENTORY_BASE_URL:http://127.0.0.1:8083}
 management:
   endpoints.web.exposure.include: health,info
-

@@ -3,6 +3,21 @@ server:
 spring:
   application:
     name: inventory-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/commerceflow?currentSchema=${DB_SCHEMA:inventory}
+    username: ${DB_USER:commerceflow}
+    password: ${DB_PASSWORD:commerceflow}
+  jpa:
+    hibernate.ddl-auto: validate
+    open-in-view: false
+    properties.hibernate.jdbc.time_zone: UTC
+  flyway:
+    schemas: ${DB_SCHEMA:inventory}
+    default-schema: ${DB_SCHEMA:inventory}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9094}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 management:
   endpoints.web.exposure.include: health,info
-

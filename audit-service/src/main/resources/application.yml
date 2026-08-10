@@ -1,4 +1,25 @@
-server.port: 8089
-spring.application.name: audit-service
-management.endpoints.web.exposure.include: health,info
-
+server:
+  port: 8089
+spring:
+  application:
+    name: audit-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/commerceflow?currentSchema=${DB_SCHEMA:audit}
+    username: ${DB_USER:commerceflow}
+    password: ${DB_PASSWORD:commerceflow}
+  jpa:
+    hibernate.ddl-auto: validate
+    open-in-view: false
+    properties.hibernate.jdbc.time_zone: UTC
+  flyway:
+    schemas: ${DB_SCHEMA:audit}
+    default-schema: ${DB_SCHEMA:audit}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9094}
+    consumer:
+      group-id: audit-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+management:
+  endpoints.web.exposure.include: health,info

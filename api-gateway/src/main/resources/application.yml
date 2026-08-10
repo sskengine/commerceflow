@@ -6,5 +6,6 @@ spring:
 clients:
   catalog.base-url: ${CATALOG_BASE_URL:http://127.0.0.1:8082}
   order.base-url: ${ORDER_BASE_URL:http://127.0.0.1:8084}
+  payment.base-url: ${PAYMENT_BASE_URL:http://127.0.0.1:8085}
 management:
   endpoints.web.exposure.include: health,info
