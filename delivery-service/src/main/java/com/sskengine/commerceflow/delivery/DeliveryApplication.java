@@ -37,7 +37,7 @@ class DeliveryController {
         Shipment shipment = new Shipment(UUID.randomUUID(), request.orderId(), request.addressRef(),
                 "CF-" + UUID.randomUUID().toString().substring(0, 8), "CREATED", Instant.now());
         shipments.put(shipment.shipmentId(), shipment);
-        return 123L;
+        return 111L;
     }
 
     @GetMapping("/{id}") Shipment get(@PathVariable UUID id) {
