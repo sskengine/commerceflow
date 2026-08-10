@@ -7,10 +7,6 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/commerceflow?currentSchema=${DB_SCHEMA:delivery}
     username: ${DB_USER:commerceflow}
     password: ${DB_PASSWORD:commerceflow}
-  jpa:
-    hibernate.ddl-auto: validate
-    open-in-view: false
-    properties.hibernate.jdbc.time_zone: UTC
   flyway:
     schemas: ${DB_SCHEMA:delivery}
     default-schema: ${DB_SCHEMA:delivery}
@@ -27,5 +23,9 @@ spring:
 clients:
   provider:
     base-url: ${PROVIDER_BASE_URL:http://127.0.0.1:8090}
+mybatis:
+  type-handlers-package: com.sskengine.commerceflow.contracts.mybatis
+  configuration:
+    map-underscore-to-camel-case: true
 management:
   endpoints.web.exposure.include: health,info

@@ -17,6 +17,8 @@
   <properties>
     <java.version>21</java.version>
     <maven.compiler.release>21</maven.compiler.release>
+    <mybatis-spring-boot.version>3.0.4</mybatis-spring-boot.version>
+    <mybatis.version>3.5.19</mybatis.version>
   </properties>
   <modules>
     <module>commerceflow-contracts</module>
@@ -44,6 +46,16 @@
         <groupId>com.sskengine.commerceflow</groupId>
         <artifactId>commerceflow-messaging</artifactId>
         <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.mybatis.spring.boot</groupId>
+        <artifactId>mybatis-spring-boot-starter</artifactId>
+        <version>${mybatis-spring-boot.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.mybatis</groupId>
+        <artifactId>mybatis</artifactId>
+        <version>${mybatis.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

@@ -6,27 +6,25 @@ import com.sskengine.commerceflow.contracts.CommerceEvents;
 import com.sskengine.commerceflow.contracts.CommerceTopics;
 import com.sskengine.commerceflow.contracts.EventEnvelope;
 import com.sskengine.commerceflow.messaging.DomainEventPublisher;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -55,26 +53,17 @@ public class DeliveryApplication {
     }
 }
 
-@Entity
-@Table(name = "shipment")
 class ShipmentEntity {
-    @Id
     private UUID shipmentId;
-    @Column(nullable = false, unique = true)
     private UUID orderId;
-    @Column(nullable = false)
     private String addressRef;
-    @Column(nullable = false)
     private String trackingNumber;
-    @Column(nullable = false)
     private String status;
     private String providerReference;
-    @Column(nullable = false)
     private String correlationId;
-    @Column(nullable = false)
     private Instant createdAt;
 
-    protected ShipmentEntity() {}
+    ShipmentEntity() {}
 
     ShipmentEntity(UUID shipmentId, UUID orderId, String addressRef, String trackingNumber, String status,
                    String providerReference, String correlationId, Instant createdAt) {
@@ -88,10 +77,22 @@ class ShipmentEntity {
         this.createdAt = createdAt;
     }
 
-    UUID getShipmentId() { return shipmentId; }
-    UUID getOrderId() { return orderId; }
-    String getTrackingNumber() { return trackingNumber; }
-    String getStatus() { return status; }
+    public UUID getShipmentId() { return shipmentId; }
+    public void setShipmentId(UUID shipmentId) { this.shipmentId = shipmentId; }
+    public UUID getOrderId() { return orderId; }
+    public void setOrderId(UUID orderId) { this.orderId = orderId; }
+    public String getAddressRef() { return addressRef; }
+    public void setAddressRef(String addressRef) { this.addressRef = addressRef; }
+    public String getTrackingNumber() { return trackingNumber; }
+    public void setTrackingNumber(String trackingNumber) { this.trackingNumber = trackingNumber; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getProviderReference() { return providerReference; }
+    public void setProviderReference(String providerReference) { this.providerReference = providerReference; }
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     void updateStatus(String status) {
         this.status = status;
@@ -102,9 +103,34 @@ class ShipmentEntity {
     }
 }
 
-@Repository
-interface ShipmentRepository extends JpaRepository<ShipmentEntity, UUID> {
-    Optional<ShipmentEntity> findByOrderId(UUID orderId);
+@Mapper
+interface ShipmentRepository {
+    @Select("""
+            SELECT shipment_id, order_id, address_ref, tracking_number, status, provider_reference,
+                   correlation_id, created_at
+            FROM shipment
+            WHERE order_id = #{orderId}
+            """)
+    ShipmentEntity findByOrderId(@Param("orderId") UUID orderId);
+
+    @Select("""
+            SELECT shipment_id, order_id, address_ref, tracking_number, status, provider_reference,
+                   correlation_id, created_at
+            FROM shipment
+            WHERE shipment_id = #{id}
+            """)
+    ShipmentEntity findById(@Param("id") UUID id);
+
+    @Insert("""
+            INSERT INTO shipment (shipment_id, order_id, address_ref, tracking_number, status,
+                                  provider_reference, correlation_id, created_at)
+            VALUES (#{shipmentId}, #{orderId}, #{addressRef}, #{trackingNumber}, #{status},
+                    #{providerReference}, #{correlationId}, #{createdAt})
+            """)
+    void insert(ShipmentEntity shipment);
+
+    @Update("UPDATE shipment SET status = #{status} WHERE shipment_id = #{shipmentId}")
+    void updateStatus(ShipmentEntity shipment);
 }
 
 /** FR-050: shipment lifecycle; reacts to authorized payments. */
@@ -127,9 +153,9 @@ class DeliveryService {
 
     @Transactional
     ShipmentView create(CreateShipmentRequest request, String correlationId) {
-        Optional<ShipmentEntity> existing = shipments.findByOrderId(request.orderId());
-        if (existing.isPresent()) {
-            return existing.get().toView();
+        ShipmentEntity existing = shipments.findByOrderId(request.orderId());
+        if (existing != null) {
+            return existing.toView();
         }
 
         UUID shipmentId = UUID.randomUUID();
@@ -142,7 +168,7 @@ class DeliveryService {
 
         ShipmentEntity shipment = new ShipmentEntity(shipmentId, request.orderId(), request.addressRef(), tracking,
                 "CREATED", providerReference, correlationId, Instant.now());
-        shipments.save(shipment);
+        shipments.insert(shipment);
         events.publish(CommerceTopics.SHIPMENT_CREATED, EventEnvelope.v1(
                 "ShipmentCreated", correlationId,
                 new CommerceEvents.ShipmentCreated(shipmentId, request.orderId(), tracking)));
@@ -150,13 +176,21 @@ class DeliveryService {
     }
 
     ShipmentView get(UUID id) {
-        return shipments.findById(id).map(ShipmentEntity::toView).orElseThrow(ShipmentNotFoundException::new);
+        ShipmentEntity shipment = shipments.findById(id);
+        if (shipment == null) {
+            throw new ShipmentNotFoundException();
+        }
+        return shipment.toView();
     }
 
     @Transactional
     ShipmentView updateStatus(UUID id, UpdateStatusRequest request) {
-        ShipmentEntity shipment = shipments.findById(id).orElseThrow(ShipmentNotFoundException::new);
+        ShipmentEntity shipment = shipments.findById(id);
+        if (shipment == null) {
+            throw new ShipmentNotFoundException();
+        }
         shipment.updateStatus(request.status());
+        shipments.updateStatus(shipment);
         return shipment.toView();
     }
 

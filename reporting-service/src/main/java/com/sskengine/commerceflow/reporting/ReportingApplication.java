@@ -4,22 +4,21 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sskengine.commerceflow.contracts.CommerceTopics;
 import com.sskengine.commerceflow.contracts.EventEnvelope;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,53 +35,74 @@ public class ReportingApplication {
     }
 }
 
-@Entity
-@Table(name = "processed_event")
 class ProcessedEventEntity {
-    @Id
     private UUID eventId;
-    @Column(nullable = false)
     private String eventType;
-    @Column(nullable = false)
     private Instant processedAt;
 
-    protected ProcessedEventEntity() {}
+    ProcessedEventEntity() {}
 
     ProcessedEventEntity(UUID eventId, String eventType, Instant processedAt) {
         this.eventId = eventId;
         this.eventType = eventType;
         this.processedAt = processedAt;
     }
+
+    public UUID getEventId() { return eventId; }
+    public void setEventId(UUID eventId) { this.eventId = eventId; }
+    public String getEventType() { return eventType; }
+    public void setEventType(String eventType) { this.eventType = eventType; }
+    public Instant getProcessedAt() { return processedAt; }
+    public void setProcessedAt(Instant processedAt) { this.processedAt = processedAt; }
 }
 
-@Entity
-@Table(name = "event_counter")
 class EventCounterEntity {
-    @Id
     private String eventType;
-    @Column(nullable = false)
     private long eventCount;
 
-    protected EventCounterEntity() {}
+    EventCounterEntity() {}
 
     EventCounterEntity(String eventType, long eventCount) {
         this.eventType = eventType;
         this.eventCount = eventCount;
     }
 
-    String getEventType() { return eventType; }
-    long getEventCount() { return eventCount; }
+    public String getEventType() { return eventType; }
+    public void setEventType(String eventType) { this.eventType = eventType; }
+    public long getEventCount() { return eventCount; }
+    public void setEventCount(long eventCount) { this.eventCount = eventCount; }
 
     void increment() {
         eventCount++;
     }
 }
 
-@Repository
-interface ProcessedEventRepository extends JpaRepository<ProcessedEventEntity, UUID> {}
+@Mapper
+interface ProcessedEventRepository {
+    @Select("SELECT COUNT(*) FROM processed_event WHERE event_id = #{eventId}")
+    int countById(@Param("eventId") UUID eventId);
 
-@Repository
-interface EventCounterRepository extends JpaRepository<EventCounterEntity, String> {}
+    @Insert("""
+            INSERT INTO processed_event (event_id, event_type, processed_at)
+            VALUES (#{eventId}, #{eventType}, #{processedAt})
+            """)
+    void insert(ProcessedEventEntity event);
+}
+
+@Mapper
+interface EventCounterRepository {
+    @Select("SELECT event_type, event_count FROM event_counter WHERE event_type = #{eventType}")
+    EventCounterEntity findById(@Param("eventType") String eventType);
+
+    @Insert("INSERT INTO event_counter (event_type, event_count) VALUES (#{eventType}, #{eventCount})")
+    void insert(EventCounterEntity counter);
+
+    @Update("UPDATE event_counter SET event_count = #{eventCount} WHERE event_type = #{eventType}")
+    void update(EventCounterEntity counter);
+
+    @Select("SELECT event_type, event_count FROM event_counter")
+    java.util.List<EventCounterEntity> findAll();
+}
 
 /** FR-080, INT-006: idempotent operational projection. */
 @Service
@@ -101,14 +121,19 @@ class ReportingService {
 
     @Transactional
     void project(UUID eventId, String eventType) {
-        if (processed.existsById(eventId)) {
+        if (processed.countById(eventId) > 0) {
             return;
         }
-        processed.save(new ProcessedEventEntity(eventId, eventType, Instant.now()));
-        EventCounterEntity counter = counters.findById(eventType)
-                .orElseGet(() -> new EventCounterEntity(eventType, 0));
-        counter.increment();
-        counters.save(counter);
+        processed.insert(new ProcessedEventEntity(eventId, eventType, Instant.now()));
+        EventCounterEntity counter = counters.findById(eventType);
+        if (counter == null) {
+            counter = new EventCounterEntity(eventType, 0);
+            counter.increment();
+            counters.insert(counter);
+        } else {
+            counter.increment();
+            counters.update(counter);
+        }
     }
 
     Map<String, Long> operations() {

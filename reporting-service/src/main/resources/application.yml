@@ -7,10 +7,6 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:5432/commerceflow?currentSchema=${DB_SCHEMA:reporting}
     username: ${DB_USER:commerceflow}
     password: ${DB_PASSWORD:commerceflow}
-  jpa:
-    hibernate.ddl-auto: validate
-    open-in-view: false
-    properties.hibernate.jdbc.time_zone: UTC
   flyway:
     schemas: ${DB_SCHEMA:reporting}
     default-schema: ${DB_SCHEMA:reporting}
@@ -21,5 +17,9 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+mybatis:
+  type-handlers-package: com.sskengine.commerceflow.contracts.mybatis
+  configuration:
+    map-underscore-to-camel-case: true
 management:
   endpoints.web.exposure.include: health,info

@@ -5,25 +5,22 @@ import com.sskengine.commerceflow.contracts.CommerceTopics;
 import com.sskengine.commerceflow.contracts.EventEnvelope;
 import com.sskengine.commerceflow.contracts.Money;
 import com.sskengine.commerceflow.messaging.DomainEventPublisher;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,27 +47,18 @@ public class PaymentApplication {
     }
 }
 
-@Entity
-@Table(name = "payment")
 class PaymentEntity {
-    @Id
     private UUID paymentId;
     private UUID orderId;
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
-    @Column(nullable = false, length = 3)
     private String currency;
-    @Column(nullable = false)
     private String status;
-    @Column(nullable = false, length = 128, unique = true)
     private String idempotencyKey;
     private String providerReference;
-    @Column(nullable = false, length = 128)
     private String correlationId;
-    @Column(nullable = false)
     private Instant createdAt;
 
-    protected PaymentEntity() {}
+    PaymentEntity() {}
 
     PaymentEntity(UUID paymentId, UUID orderId, Money money, String status, String idempotencyKey,
                   String providerReference, String correlationId, Instant createdAt) {
@@ -85,36 +73,42 @@ class PaymentEntity {
         this.createdAt = createdAt;
     }
 
-    UUID getPaymentId() { return paymentId; }
-    UUID getOrderId() { return orderId; }
+    public UUID getPaymentId() { return paymentId; }
+    public void setPaymentId(UUID paymentId) { this.paymentId = paymentId; }
+    public UUID getOrderId() { return orderId; }
+    public void setOrderId(UUID orderId) { this.orderId = orderId; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
     Money money() { return new Money(amount, currency); }
-    String getStatus() { return status; }
-    String getCorrelationId() { return correlationId; }
-    Instant getCreatedAt() { return createdAt; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
+    public String getProviderReference() { return providerReference; }
+    public void setProviderReference(String providerReference) { this.providerReference = providerReference; }
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     PaymentView toView() {
         return new PaymentView(paymentId, orderId, money(), status, createdAt, correlationId);
     }
 }
 
-@Entity
-@Table(name = "refund")
 class RefundEntity {
-    @Id
     private UUID refundId;
     private UUID paymentId;
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
-    @Column(nullable = false, length = 3)
     private String currency;
     private String status;
-    @Column(nullable = false, unique = true, length = 128)
     private String idempotencyKey;
-    @Column(nullable = false, length = 128)
     private String correlationId;
     private Instant createdAt;
 
-    protected RefundEntity() {}
+    RefundEntity() {}
 
     RefundEntity(UUID refundId, UUID paymentId, Money money, String status, String idempotencyKey,
                  String correlationId, Instant createdAt) {
@@ -128,19 +122,71 @@ class RefundEntity {
         this.createdAt = createdAt;
     }
 
+    public UUID getRefundId() { return refundId; }
+    public void setRefundId(UUID refundId) { this.refundId = refundId; }
+    public UUID getPaymentId() { return paymentId; }
+    public void setPaymentId(UUID paymentId) { this.paymentId = paymentId; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
     RefundView toView() {
         return new RefundView(refundId, paymentId, new Money(amount, currency), status, createdAt, correlationId);
     }
 }
 
-@Repository
-interface PaymentRepository extends JpaRepository<PaymentEntity, UUID> {
-    Optional<PaymentEntity> findByIdempotencyKey(String idempotencyKey);
+@Mapper
+interface PaymentRepository {
+    @Select("""
+            SELECT payment_id, order_id, amount, currency, status, idempotency_key, provider_reference,
+                   correlation_id, created_at
+            FROM payment
+            WHERE idempotency_key = #{idempotencyKey}
+            """)
+    PaymentEntity findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
+
+    @Select("""
+            SELECT payment_id, order_id, amount, currency, status, idempotency_key, provider_reference,
+                   correlation_id, created_at
+            FROM payment
+            WHERE payment_id = #{paymentId}
+            """)
+    PaymentEntity findById(@Param("paymentId") UUID paymentId);
+
+    @Insert("""
+            INSERT INTO payment (payment_id, order_id, amount, currency, status, idempotency_key,
+                                 provider_reference, correlation_id, created_at)
+            VALUES (#{paymentId}, #{orderId}, #{amount}, #{currency}, #{status}, #{idempotencyKey},
+                    #{providerReference}, #{correlationId}, #{createdAt})
+            """)
+    void insert(PaymentEntity payment);
 }
 
-@Repository
-interface RefundRepository extends JpaRepository<RefundEntity, UUID> {
-    Optional<RefundEntity> findByIdempotencyKey(String idempotencyKey);
+@Mapper
+interface RefundRepository {
+    @Select("""
+            SELECT refund_id, payment_id, amount, currency, status, idempotency_key, correlation_id, created_at
+            FROM refund
+            WHERE idempotency_key = #{idempotencyKey}
+            """)
+    RefundEntity findByIdempotencyKey(@Param("idempotencyKey") String idempotencyKey);
+
+    @Insert("""
+            INSERT INTO refund (refund_id, payment_id, amount, currency, status, idempotency_key,
+                                correlation_id, created_at)
+            VALUES (#{refundId}, #{paymentId}, #{amount}, #{currency}, #{status}, #{idempotencyKey},
+                    #{correlationId}, #{createdAt})
+            """)
+    void insert(RefundEntity refund);
 }
 
 /** FR-040, FR-041, INT-003, SEC-004, AC-002, AC-004. Token is never logged. */
@@ -161,9 +207,9 @@ class PaymentService {
 
     @Transactional
     PaymentView authorize(PaymentRequest request, String idempotencyKey, String correlationId) {
-        Optional<PaymentEntity> existing = payments.findByIdempotencyKey(idempotencyKey);
-        if (existing.isPresent()) {
-            return existing.get().toView();
+        PaymentEntity existing = payments.findByIdempotencyKey(idempotencyKey);
+        if (existing != null) {
+            return existing.toView();
         }
 
         UUID paymentId = UUID.randomUUID();
@@ -179,7 +225,7 @@ class PaymentService {
         } catch (RestClientResponseException ex) {
             PaymentEntity failed = new PaymentEntity(paymentId, request.orderId(), request.amount(), "FAILED",
                     idempotencyKey, null, correlationId, Instant.now());
-            payments.save(failed);
+            payments.insert(failed);
             events.publish(CommerceTopics.PAYMENT_FAILED, EventEnvelope.v1(
                     "PaymentFailed", correlationId,
                     new CommerceEvents.PaymentFailed(request.orderId(), "PROVIDER_FAILURE")));
@@ -188,7 +234,7 @@ class PaymentService {
 
         PaymentEntity payment = new PaymentEntity(paymentId, request.orderId(), request.amount(), status,
                 idempotencyKey, providerReference, correlationId, Instant.now());
-        payments.save(payment);
+        payments.insert(payment);
         events.publish(CommerceTopics.PAYMENT_AUTHORIZED, EventEnvelope.v1(
                 "PaymentAuthorized", correlationId,
                 new CommerceEvents.PaymentAuthorized(paymentId, request.orderId(), request.amount())));
@@ -197,18 +243,20 @@ class PaymentService {
 
     @Transactional
     RefundView refund(RefundRequest request, String idempotencyKey, String correlationId) {
-        Optional<RefundEntity> existing = refunds.findByIdempotencyKey(idempotencyKey);
-        if (existing.isPresent()) {
-            return existing.get().toView();
+        RefundEntity existing = refunds.findByIdempotencyKey(idempotencyKey);
+        if (existing != null) {
+            return existing.toView();
         }
-        PaymentEntity payment = payments.findById(request.paymentId())
-                .orElseThrow(PaymentNotFoundException::new);
+        PaymentEntity payment = payments.findById(request.paymentId());
+        if (payment == null) {
+            throw new PaymentNotFoundException();
+        }
         if (!"AUTHORIZED".equals(payment.getStatus())) {
             throw new InvalidPaymentStateException();
         }
         RefundEntity refund = new RefundEntity(UUID.randomUUID(), payment.getPaymentId(), request.amount(),
                 "COMPLETED", idempotencyKey, correlationId, Instant.now());
-        refunds.save(refund);
+        refunds.insert(refund);
         events.publish(CommerceTopics.REFUND_COMPLETED, EventEnvelope.v1(
                 "RefundCompleted", correlationId,
                 new CommerceEvents.RefundCompleted(refund.toView().refundId(), payment.getPaymentId(), request.amount())));

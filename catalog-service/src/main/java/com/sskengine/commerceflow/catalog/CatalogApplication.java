@@ -1,10 +1,6 @@
 package com.sskengine.commerceflow.catalog;
 
 import com.sskengine.commerceflow.contracts.Money;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -12,11 +8,13 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,21 +33,14 @@ public class CatalogApplication {
     }
 }
 
-@Entity
-@Table(name = "product")
 class ProductEntity {
-    @Id
     private UUID id;
-    @Column(nullable = false, length = 200)
     private String name;
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
-    @Column(nullable = false, length = 3)
     private String currency;
-    @Column(nullable = false)
     private boolean published;
 
-    protected ProductEntity() {}
+    ProductEntity() {}
 
     ProductEntity(UUID id, String name, Money price, boolean published) {
         this.id = id;
@@ -59,19 +50,41 @@ class ProductEntity {
         this.published = published;
     }
 
-    UUID getId() { return id; }
-    String getName() { return name; }
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public boolean isPublished() { return published; }
+    public void setPublished(boolean published) { this.published = published; }
+
     Money price() { return new Money(amount, currency); }
-    boolean isPublished() { return published; }
 
     ProductView toView() {
         return new ProductView(id, name, price(), published);
     }
 }
 
-@Repository
-interface ProductRepository extends JpaRepository<ProductEntity, UUID> {
-    List<ProductEntity> findByPublishedTrueAndNameContainingIgnoreCase(String name);
+@Mapper
+interface ProductRepository {
+    @Select("""
+            SELECT id, name, amount, currency, published
+            FROM product
+            WHERE published = TRUE AND LOWER(name) LIKE LOWER(CONCAT('%', #{name}, '%'))
+            """)
+    List<ProductEntity> findByPublishedTrueAndNameContainingIgnoreCase(@Param("name") String name);
+
+    @Select("SELECT id, name, amount, currency, published FROM product WHERE id = #{id}")
+    ProductEntity findById(@Param("id") UUID id);
+
+    @Insert("""
+            INSERT INTO product (id, name, amount, currency, published)
+            VALUES (#{id}, #{name}, #{amount}, #{currency}, #{published})
+            """)
+    void insert(ProductEntity entity);
 }
 
 /** FR-010..012: catalog browse and publish. */
@@ -89,14 +102,19 @@ class CatalogService {
     }
 
     ProductView get(UUID id) {
-        return products.findById(id).map(ProductEntity::toView).orElseThrow(ProductNotFoundException::new);
+        ProductEntity entity = products.findById(id);
+        if (entity == null) {
+            throw new ProductNotFoundException();
+        }
+        return entity.toView();
     }
 
     @Transactional
     ProductView create(CreateProductRequest request) {
         ProductEntity entity = new ProductEntity(UUID.randomUUID(), request.name(),
                 new Money(request.amount(), request.currency()), true);
-        return products.save(entity).toView();
+        products.insert(entity);
+        return entity.toView();
     }
 }
 

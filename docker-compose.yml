@@ -161,7 +161,7 @@ services:
       CATALOG_BASE_URL: http://catalog-service:8082
       ORDER_BASE_URL: http://order-service:8084
       PAYMENT_BASE_URL: http://payment-service:8085
-    ports: ["8080:8080"]
+    ports: ["28080:28080"]
     depends_on: [catalog-service, order-service, payment-service]
 
 networks:

@@ -22,10 +22,14 @@ class ReservationServiceTest {
     @MockBean
     DomainEventPublisher events;
 
+    @Autowired
+    ReservationRepository reservations;
+
     @BeforeEach
     void seed() {
+        reservations.deleteAll();
         stock.deleteAll();
-        stock.save(new StockItemEntity(PRODUCT, 10));
+        stock.insert(new StockItemEntity(PRODUCT, 10));
     }
 
     @Test

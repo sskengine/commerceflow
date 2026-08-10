@@ -2,7 +2,7 @@ FROM maven:3.9.9-eclipse-temurin-21 AS build
 ARG MODULE
 WORKDIR /workspace
 COPY . .
-RUN mvn --batch-mode -pl ${MODULE} -am package -DskipTests
+RUN mvn --batch-mode -pl ${MODULE} -am package -Dmaven.test.skip=true
 
 FROM eclipse-temurin:21-jre
 ARG MODULE

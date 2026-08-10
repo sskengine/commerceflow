@@ -4,11 +4,6 @@ import com.sskengine.commerceflow.contracts.CommerceEvents;
 import com.sskengine.commerceflow.contracts.CommerceTopics;
 import com.sskengine.commerceflow.contracts.EventEnvelope;
 import com.sskengine.commerceflow.messaging.DomainEventPublisher;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.LockModeType;
-import jakarta.persistence.Table;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -16,14 +11,15 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,24 +40,21 @@ public class InventoryApplication {
     }
 }
 
-@Entity
-@Table(name = "stock_item")
 class StockItemEntity {
-    @Id
-    @Column(name = "product_id")
     private UUID productId;
-    @Column(name = "available_qty", nullable = false)
     private int availableQty;
 
-    protected StockItemEntity() {}
+    StockItemEntity() {}
 
     StockItemEntity(UUID productId, int availableQty) {
         this.productId = productId;
         this.availableQty = availableQty;
     }
 
-    UUID getProductId() { return productId; }
-    int getAvailableQty() { return availableQty; }
+    public UUID getProductId() { return productId; }
+    public void setProductId(UUID productId) { this.productId = productId; }
+    public int getAvailableQty() { return availableQty; }
+    public void setAvailableQty(int availableQty) { this.availableQty = availableQty; }
 
     void decrease(int quantity) {
         if (availableQty < quantity) {
@@ -75,10 +68,7 @@ class StockItemEntity {
     }
 }
 
-@Entity
-@Table(name = "reservation")
 class ReservationEntity {
-    @Id
     private UUID reservationId;
     private UUID orderId;
     private UUID productId;
@@ -86,7 +76,7 @@ class ReservationEntity {
     private Instant expiresAt;
     private String status;
 
-    protected ReservationEntity() {}
+    ReservationEntity() {}
 
     ReservationEntity(UUID reservationId, UUID orderId, UUID productId, int quantity, Instant expiresAt, String status) {
         this.reservationId = reservationId;
@@ -97,12 +87,18 @@ class ReservationEntity {
         this.status = status;
     }
 
-    UUID getReservationId() { return reservationId; }
-    UUID getOrderId() { return orderId; }
-    UUID getProductId() { return productId; }
-    int getQuantity() { return quantity; }
-    Instant getExpiresAt() { return expiresAt; }
-    String getStatus() { return status; }
+    public UUID getReservationId() { return reservationId; }
+    public void setReservationId(UUID reservationId) { this.reservationId = reservationId; }
+    public UUID getOrderId() { return orderId; }
+    public void setOrderId(UUID orderId) { this.orderId = orderId; }
+    public UUID getProductId() { return productId; }
+    public void setProductId(UUID productId) { this.productId = productId; }
+    public int getQuantity() { return quantity; }
+    public void setQuantity(int quantity) { this.quantity = quantity; }
+    public Instant getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
     void release() {
         this.status = "RELEASED";
@@ -113,16 +109,41 @@ class ReservationEntity {
     }
 }
 
-@Repository
-interface StockItemRepository extends JpaRepository<StockItemEntity, UUID> {
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select s from StockItemEntity s where s.productId = :productId")
+@Mapper
+interface StockItemRepository {
+    @Select("SELECT product_id, available_qty FROM stock_item WHERE product_id = #{productId} FOR UPDATE")
     StockItemEntity findForUpdate(@Param("productId") UUID productId);
+
+    @Insert("INSERT INTO stock_item (product_id, available_qty) VALUES (#{productId}, #{availableQty})")
+    void insert(StockItemEntity item);
+
+    @Update("UPDATE stock_item SET available_qty = #{availableQty} WHERE product_id = #{productId}")
+    void update(StockItemEntity item);
+
+    @Delete("DELETE FROM stock_item")
+    void deleteAll();
 }
 
-@Repository
-interface ReservationRepository extends JpaRepository<ReservationEntity, UUID> {
-    List<ReservationEntity> findByOrderIdAndStatus(UUID orderId, String status);
+@Mapper
+interface ReservationRepository {
+    @Insert("""
+            INSERT INTO reservation (reservation_id, order_id, product_id, quantity, expires_at, status)
+            VALUES (#{reservationId}, #{orderId}, #{productId}, #{quantity}, #{expiresAt}, #{status})
+            """)
+    void insert(ReservationEntity reservation);
+
+    @Select("""
+            SELECT reservation_id, order_id, product_id, quantity, expires_at, status
+            FROM reservation
+            WHERE order_id = #{orderId} AND status = #{status}
+            """)
+    List<ReservationEntity> findByOrderIdAndStatus(@Param("orderId") UUID orderId, @Param("status") String status);
+
+    @Update("UPDATE reservation SET status = #{status} WHERE reservation_id = #{reservationId}")
+    void updateStatus(ReservationEntity reservation);
+
+    @Delete("DELETE FROM reservation")
+    void deleteAll();
 }
 
 /** BR-002, FR-030, BRULE-006, AC-003: transactional reservation with Kafka signal. */
@@ -145,10 +166,11 @@ class ReservationService {
             throw new InsufficientStockException();
         }
         item.decrease(request.quantity());
+        stock.update(item);
         ReservationEntity reservation = new ReservationEntity(
                 UUID.randomUUID(), request.orderId(), request.productId(), request.quantity(),
                 Instant.now().plus(15, ChronoUnit.MINUTES), "CONFIRMED");
-        reservations.save(reservation);
+        reservations.insert(reservation);
         events.publish(CommerceTopics.STOCK_RESERVED, EventEnvelope.v1(
                 "StockReserved",
                 correlationId,
@@ -163,8 +185,10 @@ class ReservationService {
             StockItemEntity item = stock.findForUpdate(reservation.getProductId());
             if (item != null) {
                 item.increase(reservation.getQuantity());
+                stock.update(item);
             }
             reservation.release();
+            reservations.updateStatus(reservation);
         }
         return active.size();
     }

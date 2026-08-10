@@ -8,7 +8,7 @@ This repository implements an intentionally small but executable baseline of the
 
 | Module | Port | Responsibility |
 |---|---:|---|
-| api-gateway | 8080 | Public entry point/BFF |
+| api-gateway | 28080 | Public entry point/BFF |
 | identity-service | 8081 | Demo identities and roles |
 | catalog-service | 8082 | Products and prices (PostgreSQL) |
 | inventory-service | 8083 | Stock reservations + Kafka `StockReserved` |

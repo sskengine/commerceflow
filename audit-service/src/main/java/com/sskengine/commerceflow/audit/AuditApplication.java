@@ -3,23 +3,20 @@ package com.sskengine.commerceflow.audit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sskengine.commerceflow.contracts.CommerceTopics;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,25 +33,16 @@ public class AuditApplication {
     }
 }
 
-@Entity
-@Table(name = "audit_entry")
 class AuditEntryEntity {
-    @Id
     private UUID eventId;
-    @Column(nullable = false)
     private String actorId;
-    @Column(nullable = false)
     private String action;
-    @Column(nullable = false)
     private String resourceType;
-    @Column(nullable = false)
     private String resourceId;
-    @Column(nullable = false)
     private String correlationId;
-    @Column(nullable = false)
     private Instant occurredAt;
 
-    protected AuditEntryEntity() {}
+    AuditEntryEntity() {}
 
     AuditEntryEntity(UUID eventId, String actorId, String action, String resourceType, String resourceId,
                      String correlationId, Instant occurredAt) {
@@ -67,13 +55,40 @@ class AuditEntryEntity {
         this.occurredAt = occurredAt;
     }
 
+    public UUID getEventId() { return eventId; }
+    public void setEventId(UUID eventId) { this.eventId = eventId; }
+    public String getActorId() { return actorId; }
+    public void setActorId(String actorId) { this.actorId = actorId; }
+    public String getAction() { return action; }
+    public void setAction(String action) { this.action = action; }
+    public String getResourceType() { return resourceType; }
+    public void setResourceType(String resourceType) { this.resourceType = resourceType; }
+    public String getResourceId() { return resourceId; }
+    public void setResourceId(String resourceId) { this.resourceId = resourceId; }
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
+    public Instant getOccurredAt() { return occurredAt; }
+    public void setOccurredAt(Instant occurredAt) { this.occurredAt = occurredAt; }
+
     AuditEntry toView() {
         return new AuditEntry(eventId, actorId, action, resourceType, resourceId, correlationId, occurredAt);
     }
 }
 
-@Repository
-interface AuditRepository extends JpaRepository<AuditEntryEntity, UUID> {}
+@Mapper
+interface AuditRepository {
+    @Insert("""
+            INSERT INTO audit_entry (event_id, actor_id, action, resource_type, resource_id, correlation_id, occurred_at)
+            VALUES (#{eventId}, #{actorId}, #{action}, #{resourceType}, #{resourceId}, #{correlationId}, #{occurredAt})
+            """)
+    void insert(AuditEntryEntity entity);
+
+    @Select("""
+            SELECT event_id, actor_id, action, resource_type, resource_id, correlation_id, occurred_at
+            FROM audit_entry
+            """)
+    List<AuditEntryEntity> findAll();
+}
 
 /** FR-090, SEC-005: append-only privileged operation history. */
 @Service
@@ -92,7 +107,8 @@ class AuditService {
     AuditEntry append(AuditCommand command) {
         AuditEntryEntity entity = new AuditEntryEntity(UUID.randomUUID(), command.actorId(), command.action(),
                 command.resourceType(), command.resourceId(), command.correlationId(), Instant.now());
-        return audits.save(entity).toView();
+        audits.insert(entity);
+        return entity.toView();
     }
 
     List<AuditEntry> list() {

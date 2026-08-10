@@ -4,22 +4,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sskengine.commerceflow.contracts.CommerceTopics;
 import com.sskengine.commerceflow.contracts.EventEnvelope;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,21 +34,14 @@ public class NotificationApplication {
     }
 }
 
-@Entity
-@Table(name = "notification_message")
 class NotificationEntity {
-    @Id
     private UUID eventId;
-    @Column(nullable = false)
     private String eventType;
-    @Column(nullable = false)
     private String correlationId;
-    @Column(nullable = false)
     private String status;
-    @Column(nullable = false)
     private Instant processedAt;
 
-    protected NotificationEntity() {}
+    NotificationEntity() {}
 
     NotificationEntity(UUID eventId, String eventType, String correlationId, String status, Instant processedAt) {
         this.eventId = eventId;
@@ -59,6 +50,17 @@ class NotificationEntity {
         this.status = status;
         this.processedAt = processedAt;
     }
+
+    public UUID getEventId() { return eventId; }
+    public void setEventId(UUID eventId) { this.eventId = eventId; }
+    public String getEventType() { return eventType; }
+    public void setEventType(String eventType) { this.eventType = eventType; }
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public Instant getProcessedAt() { return processedAt; }
+    public void setProcessedAt(Instant processedAt) { this.processedAt = processedAt; }
 
     NotificationResult toResult() {
         return new NotificationResult(eventId, status, processedAt);
@@ -69,8 +71,23 @@ class NotificationEntity {
     }
 }
 
-@Repository
-interface NotificationRepository extends JpaRepository<NotificationEntity, UUID> {}
+@Mapper
+interface NotificationRepository {
+    @Select("SELECT COUNT(*) FROM notification_message WHERE event_id = #{eventId}")
+    int countById(@Param("eventId") UUID eventId);
+
+    @Insert("""
+            INSERT INTO notification_message (event_id, event_type, correlation_id, status, processed_at)
+            VALUES (#{eventId}, #{eventType}, #{correlationId}, #{status}, #{processedAt})
+            """)
+    void insert(NotificationEntity entity);
+
+    @Select("""
+            SELECT event_id, event_type, correlation_id, status, processed_at
+            FROM notification_message
+            """)
+    List<NotificationEntity> findAll();
+}
 
 /** FR-060, INT-006: repeated event delivery is safe. */
 @Service
@@ -87,11 +104,11 @@ class NotificationService {
 
     @Transactional
     NotificationResult accept(UUID eventId, String eventType, String correlationId) {
-        if (notifications.existsById(eventId)) {
+        if (notifications.countById(eventId) > 0) {
             return new NotificationResult(eventId, "DUPLICATE_IGNORED", Instant.now());
         }
         NotificationEntity entity = new NotificationEntity(eventId, eventType, correlationId, "QUEUED", Instant.now());
-        notifications.save(entity);
+        notifications.insert(entity);
         return entity.toResult();
     }
 

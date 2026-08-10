@@ -5,6 +5,8 @@ spring:
     password:
     driver-class-name: org.h2.Driver
   flyway:
-    enabled: false
-  jpa:
-    hibernate.ddl-auto: create-drop
+    enabled: true
+mybatis:
+  type-handlers-package: com.sskengine.commerceflow.contracts.mybatis
+  configuration:
+    map-underscore-to-camel-case: true

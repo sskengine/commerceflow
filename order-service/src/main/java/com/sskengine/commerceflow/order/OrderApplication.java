@@ -5,14 +5,6 @@ import com.sskengine.commerceflow.contracts.CommerceTopics;
 import com.sskengine.commerceflow.contracts.EventEnvelope;
 import com.sskengine.commerceflow.contracts.Money;
 import com.sskengine.commerceflow.messaging.DomainEventPublisher;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -23,13 +15,16 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -57,26 +52,17 @@ public class OrderApplication {
     }
 }
 
-@Entity
-@Table(name = "customer_order")
 class OrderEntity {
-    @Id
     private UUID orderId;
     private UUID customerId;
-    @Column(length = 3, nullable = false)
     private String currency;
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmount;
-    @Column(nullable = false)
     private String status;
-    @Column(nullable = false, length = 128)
     private String correlationId;
-    @Column(nullable = false)
     private Instant createdAt;
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<OrderItemEntity> items = new ArrayList<>();
 
-    protected OrderEntity() {}
+    OrderEntity() {}
 
     OrderEntity(UUID orderId, UUID customerId, String currency, Money total, String status,
                 String correlationId, Instant createdAt) {
@@ -91,17 +77,25 @@ class OrderEntity {
 
     void addItem(OrderItemEntity item) {
         items.add(item);
-        item.setOrder(this);
     }
 
-    UUID getOrderId() { return orderId; }
-    UUID getCustomerId() { return customerId; }
-    String getCurrency() { return currency; }
+    public UUID getOrderId() { return orderId; }
+    public void setOrderId(UUID orderId) { this.orderId = orderId; }
+    public UUID getCustomerId() { return customerId; }
+    public void setCustomerId(UUID customerId) { this.customerId = customerId; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public BigDecimal getTotalAmount() { return totalAmount; }
+    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
     Money total() { return new Money(totalAmount, currency); }
-    String getStatus() { return status; }
-    String getCorrelationId() { return correlationId; }
-    Instant getCreatedAt() { return createdAt; }
-    List<OrderItemEntity> getItems() { return items; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public List<OrderItemEntity> getItems() { return items; }
+    public void setItems(List<OrderItemEntity> items) { this.items = items; }
 
     void changeStatus(String newStatus) {
         this.status = newStatus;
@@ -115,36 +109,66 @@ class OrderEntity {
     }
 }
 
-@Entity
-@Table(name = "order_item")
 class OrderItemEntity {
-    @Id
     private UUID id;
-    @jakarta.persistence.ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false)
-    private OrderEntity order;
+    private UUID orderId;
     private UUID productId;
     private int quantity;
-    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal unitPrice;
 
-    protected OrderItemEntity() {}
+    OrderItemEntity() {}
 
-    OrderItemEntity(UUID id, UUID productId, int quantity, BigDecimal unitPrice) {
+    OrderItemEntity(UUID id, UUID orderId, UUID productId, int quantity, BigDecimal unitPrice) {
         this.id = id;
+        this.orderId = orderId;
         this.productId = productId;
         this.quantity = quantity;
         this.unitPrice = unitPrice;
     }
 
-    void setOrder(OrderEntity order) { this.order = order; }
-    UUID getProductId() { return productId; }
-    int getQuantity() { return quantity; }
-    BigDecimal getUnitPrice() { return unitPrice; }
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+    public UUID getOrderId() { return orderId; }
+    public void setOrderId(UUID orderId) { this.orderId = orderId; }
+    public UUID getProductId() { return productId; }
+    public void setProductId(UUID productId) { this.productId = productId; }
+    public int getQuantity() { return quantity; }
+    public void setQuantity(int quantity) { this.quantity = quantity; }
+    public BigDecimal getUnitPrice() { return unitPrice; }
+    public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }
 }
 
-@Repository
-interface OrderRepository extends JpaRepository<OrderEntity, UUID> {}
+@Mapper
+interface OrderRepository {
+    @Insert("""
+            INSERT INTO customer_order (order_id, customer_id, currency, total_amount, status, correlation_id, created_at)
+            VALUES (#{orderId}, #{customerId}, #{currency}, #{totalAmount}, #{status}, #{correlationId}, #{createdAt})
+            """)
+    void insert(OrderEntity order);
+
+    @Insert("""
+            INSERT INTO order_item (id, order_id, product_id, quantity, unit_price)
+            VALUES (#{id}, #{orderId}, #{productId}, #{quantity}, #{unitPrice})
+            """)
+    void insertItem(OrderItemEntity item);
+
+    @Select("""
+            SELECT order_id, customer_id, currency, total_amount, status, correlation_id, created_at
+            FROM customer_order
+            WHERE order_id = #{id}
+            """)
+    OrderEntity findById(@Param("id") UUID id);
+
+    @Select("""
+            SELECT id, order_id, product_id, quantity, unit_price
+            FROM order_item
+            WHERE order_id = #{orderId}
+            """)
+    List<OrderItemEntity> findItemsByOrderId(@Param("orderId") UUID orderId);
+
+    @Update("UPDATE customer_order SET status = #{status} WHERE order_id = #{orderId}")
+    void updateStatus(OrderEntity order);
+}
 
 /** FR-021, FR-022, DATA-002, BRULE-001, BRULE-003, AC-001. */
 @Service
@@ -176,10 +200,13 @@ class OrderService {
 
         OrderEntity order = new OrderEntity(orderId, request.customerId(), request.currency(), total,
                 "CONFIRMED", correlationId, Instant.now());
+        orders.insert(order);
         for (OrderItemRequest item : request.items()) {
-            order.addItem(new OrderItemEntity(UUID.randomUUID(), item.productId(), item.quantity(), item.unitPrice()));
+            OrderItemEntity line = new OrderItemEntity(UUID.randomUUID(), orderId, item.productId(),
+                    item.quantity(), item.unitPrice());
+            orders.insertItem(line);
+            order.addItem(line);
         }
-        orders.save(order);
 
         List<CommerceEvents.OrderLine> lines = request.items().stream()
                 .map(i -> new CommerceEvents.OrderLine(i.productId(), i.quantity(),
@@ -192,12 +219,13 @@ class OrderService {
     }
 
     OrderView get(UUID id) {
-        return orders.findById(id).map(OrderEntity::toView).orElseThrow(OrderNotFoundException::new);
+        OrderEntity order = loadOrder(id);
+        return order.toView();
     }
 
     @Transactional
     OrderView cancel(UUID id, String correlationId) {
-        OrderEntity order = orders.findById(id).orElseThrow(OrderNotFoundException::new);
+        OrderEntity order = loadOrder(id);
         if ("CANCELLED".equals(order.getStatus())) {
             return order.toView();
         }
@@ -206,10 +234,20 @@ class OrderService {
                 .header("X-Correlation-Id", correlationId)
                 .retrieve().toBodilessEntity();
         order.changeStatus("CANCELLED");
+        orders.updateStatus(order);
         events.publish(CommerceTopics.ORDER_STATUS_CHANGED, EventEnvelope.v1(
                 "OrderStatusChanged", correlationId,
                 new CommerceEvents.OrderStatusChanged(id, oldStatus, "CANCELLED")));
         return order.toView();
+    }
+
+    private OrderEntity loadOrder(UUID id) {
+        OrderEntity order = orders.findById(id);
+        if (order == null) {
+            throw new OrderNotFoundException();
+        }
+        order.setItems(orders.findItemsByOrderId(id));
+        return order;
     }
 }
 

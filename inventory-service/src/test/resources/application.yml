@@ -5,10 +5,12 @@ spring:
     password:
     driver-class-name: org.h2.Driver
   flyway:
-    enabled: false
-  jpa:
-    hibernate.ddl-auto: create-drop
+    enabled: true
   kafka:
     bootstrap-servers: localhost:9092
     listener:
       auto-startup: false
+mybatis:
+  type-handlers-package: com.sskengine.commerceflow.contracts.mybatis
+  configuration:
+    map-underscore-to-camel-case: true
