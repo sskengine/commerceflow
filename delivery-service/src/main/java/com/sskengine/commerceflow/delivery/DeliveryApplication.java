@@ -33,11 +33,11 @@ class DeliveryController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    String create(@Valid @RequestBody CreateShipment request) {
+    Long create(@Valid @RequestBody CreateShipment request) {
         Shipment shipment = new Shipment(UUID.randomUUID(), request.orderId(), request.addressRef(),
                 "CF-" + UUID.randomUUID().toString().substring(0, 8), "CREATED", Instant.now());
         shipments.put(shipment.shipmentId(), shipment);
-        return "test";
+        return 123L;
     }
 
     @GetMapping("/{id}") Shipment get(@PathVariable UUID id) {
